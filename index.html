@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script src="https://unpkg.com/vue@next"></script>
+  <script src="https://unpkg.com/dayjs@1.8.21/dayjs.min.js"></script>
+  <script src="https://unpkg.com/dayjs@1.7.7/locale/ja.js"></script>
+  <script>dayjs.locale('ja')</script>
+
+  <script src="holidays.js"></script>
+
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="app">
+    <div style="display: flex; justify-content: center;">
+      <div style="display: flex; width: 90%; height: auto; border: 2px solid red">
+        <template v-for="i in 12">
+          <month-item :year="2021" :month="i" :size="size(i)"
+            @click="() => {i === selectIndex ? selectIndex = -1 : selectIndex = i; }"></month-item>
+        </template>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function range(length) {
+      return Array.from({ length }, (_, i) => i)
+    }
+
+    const App = {
+      data() {
+        return {
+          selectIndex: dayjs().month() + 1,
+        }
+      },
+      methods: {
+        size(index) {
+          if (this.selectIndex < 0) {
+            return 1 // 1
+          } else if (this.selectIndex === index) {
+            return 2 // 1
+          } else {
+            return 0 // 0
+          }
+        }
+      },
+      computed: {
+        dayjs() { return dayjs }
+      }
+    }
+
+    const app = Vue.createApp(App)
+  </script>
+
+  <style>
+    .calendar-table {
+      text-align: center;
+      font-size: 1.5em;
+      border: solid 1px #AAAAAA;
+    }
+
+    .calendar-table td {
+      border: solid 1px #AAAAAA;
+    }
+  </style>
+
+  <template id="month-item">
+    <div :style="`border: 2px solid green; flex-grow: ${grow}; transition: all 0.2s ease-in-out;`">
+      <div style="display: flex; justify-content: center; font-size: 1.5em; padding: 4px 0;">
+        {{month}}月 <br>
+      </div>
+      <div style="display: flex;">
+        <div :style="`width: ${width}; min-width: 60px; ${transition}`">
+          <date-item v-for="date in dates" :year="year" :month="month" :date="date"></date-item>
+        </div>
+
+        <div v-if="size_ === 2 || moving?.old === 2" :style="`flex-grow: 1`">
+          <div v-if="size_ === 2 && !moving">
+            <table class="calendar-table" border="0" cellspacing="0"
+              style="width: calc(100% - 32px); height: 500px; margin: 0 auto;">
+              <thead>
+                <tr>
+                  <td v-for="d in ['日', '月', '火', '水', '木', '金', '土']" style="padding: 4px 0;">
+                    {{ d }}
+                  </td>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in calendar">
+                  <template v-for="cell in row">
+                    <template v-if="cell">
+                      <date-table-cell :year="year" :month="month" :date="cell"></date-table-cell>
+                    </template>
+                    <template v-else>
+                      <td></td>
+                    </template>
+                  </template>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+
+    </div>
+  </template>
+
+  <script>
+    app.component('month-item', {
+      template: document.getElementById("month-item").innerHTML,
+
+      props: {
+        year: Number,
+        month: Number,
+        size: {
+          alias: "_size",
+          type: Number,
+        },
+      },
+
+      data() {
+        return {
+          size_: this.size,
+          moving: undefined,
+          // moving: {
+          //   old: 0,
+          //   new: 0,
+          // }
+        }
+      },
+
+      computed: {
+        grow() {
+          switch (this.size_) {
+            case 1:
+            case 2:
+              return 1
+            case 0:
+              return 0
+          }
+        },
+        width() {
+          if (
+            // 1 => !2
+            this.moving?.old === 1 &&
+            this.moving?.new !== 2
+          ) {
+            return "100%"
+          } else if (
+            // any => 1
+            this.moving?.new === 1
+          ) {
+            return "100%"
+          } else if (
+            this.size_ === 1
+          ) {
+            return "100%"
+          } else {
+            return "60px"
+          }
+        },
+        transition() {
+          if (
+            // 1 => 2
+            this.moving?.old === 1 &&
+            this.moving?.new === 2
+          ) {
+            return "transition: all 0.2s cubic-bezier(0.2, 0, 0.6, 1);"
+          } else if (
+            // 2 => 1
+            this.moving?.old === 2 &&
+            this.moving?.new === 1
+          ) {
+            return "transition: all 0.2s cubic-bezier(0.2, 0, 0.6, 1);"
+          } else {
+            return ""
+          }
+        },
+
+        dates() {
+          const text = `${this.year}-${this.month}-01`
+          const length = dayjs(text).daysInMonth()
+          return range(length).map(i => i + 1)
+        },
+
+        calendar() {
+          let result = []
+
+          const start = dayjs(`${this.year}-${this.month}-01`)
+          result.push(range((start.day() + 0) % 7).map(() => undefined))
+
+          for (const date of this.dates) {
+            if (7 <= result[result.length - 1].length) {
+              result.push([date])
+            } else {
+              result[result.length - 1].push(date)
+            }
+          }
+
+          for (const i of range(7 - result[result.length - 1].length)) {
+            result[result.length - 1].push(undefined)
+          }
+          
+          return result
+        }
+      },
+
+      watch: {
+        size(n, o) {
+          const adjust = n === 2 ? 0 : 5
+          setTimeout(() => this.moving = { new: n, old: o }, adjust)
+          setTimeout(() => this.size_ = n, adjust)
+          setTimeout(() => this.moving = undefined, 200 + adjust)
+        }
+      }
+    })
+  </script>
+
+
+  <template id="date-item">
+    <div :style="`display: flex; justify-content: center; line-height: 1.4em; background: ${color}; width: 100%;`">
+      <div style="width: 1.3em; text-align: center;"> {{date}} </div>
+      <div style="width: 1.3em; text-align: center"> {{day}}</div>
+    </div>
+  </template>
+
+  <script>
+    app.component('date-item', {
+      template: document.getElementById("date-item").innerHTML,
+
+      props: {
+        year: Number,
+        month: Number,
+        date: Number,
+      },
+
+      computed: {
+        day() {
+          if (HolidaysDict[this.text]) { return "祝" }
+          return dayjs(this.text).format("dd").slice(0, 1)
+        },
+        text() {
+          const text = `${this.year}-${this.month}-${this.date}`
+          return dayjs(text).format("YYYY-MM-DD")
+        },
+        color() {
+          if (this.text === dayjs().format("YYYY-MM-DD")) {
+            return "#ffff6b"
+          } else if (this.day === "土") {
+            return "lightskyblue"
+          } else if (this.day === "日") {
+            return "salmon"
+          } else if (this.day === "祝") {
+            return "salmon"
+          } else {
+            return "white"
+          }
+        }
+      },
+    })
+  </script>
+
+  <template id="date-table-cell">
+    <td :style="`background: ${color};`">
+      {{ date }}
+    </td>
+  </template>
+
+  <script>
+    app.component('date-table-cell', {
+      template: document.getElementById("date-table-cell").innerHTML,
+
+      props: {
+        year: Number,
+        month: Number,
+        date: Number,
+      },
+
+      computed: {
+        day() {
+          if (HolidaysDict[this.text]) { return "祝" }
+          return dayjs(this.text).format("dd").slice(0, 1)
+        },
+        text() {
+          const text = `${this.year}-${this.month}-${this.date}`
+          return dayjs(text).format("YYYY-MM-DD")
+        },
+        color() {
+          if (this.text === dayjs().format("YYYY-MM-DD")) {
+            return "#ffff6b"
+          } if (this.day === "土") {
+            return "lightskyblue"
+          } else if (this.day === "日") {
+            return "salmon"
+          } else if (this.day === "祝") {
+            return "salmon"
+          } else {
+            return "white"
+          }
+        }
+      },
+    })
+  </script>
+
+  <script>
+    app.mount('#app')
+  </script>
+</body>
+
+</html>
